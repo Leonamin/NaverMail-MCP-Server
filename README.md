@@ -30,7 +30,10 @@ Use this token to authenticate requests or set DANGEROUSLY_OMIT_AUTH=true to dis
 
 ### Claude Desktop
 
-```json
+1. ~/Library/Application Support/Claude/claude_desktop_config.json 파일을 엽니다.(없으면 파일을 만들어주세요.)
+
+2. 아래 내용 중 `/ABSOLUTE/PATH/TO/naver-mail-mcp`와 `--naver-id`, `--naver-password`는 수정해주세요
+```json 
 {
   "mcpServers": {
     "naver-mail": {
@@ -39,13 +42,15 @@ Use this token to authenticate requests or set DANGEROUSLY_OMIT_AUTH=true to dis
         "--directory",
         "/ABSOLUTE/PATH/TO/naver-mail-mcp",
         "run",
-        "server.py"
-        "--naver-id"
-        "your-id"
-        "--naver-password"
+        "server.py",
+        "--naver-id",
+        "your-id",
+        "--naver-password",
         "your-password"
       ]
     }
   }
 }
 ```
+
+3. 파일 저장 후 Claude Desktop을 재시작해주세요
