@@ -1,4 +1,5 @@
-from imap_tools import MailBox, MailMessage, AND
+from typing import List
+from imap_tools import MailBox, MailMessage, AND, FolderInfo
 
 
 class MailService:
@@ -11,7 +12,7 @@ class MailService:
             self.id, self.password, "INBOX"
         )
 
-    def get_mails(self, max_count: int = 10) -> list[MailMessage]:
+    def get_mails(self, max_count: int = 10) -> List[MailMessage]:
         with self._get_mailbox_client() as mailbox:
             return list(mailbox.fetch(limit=max_count, reverse=True))
 
@@ -64,7 +65,7 @@ class MailService:
                 'has_more': has_more
             }
 
-    def get_mails_by_range(self, start_index: int = 0, count: int = 10) -> list[MailMessage]:
+    def get_mails_by_range(self, start_index: int = 0, count: int = 10) -> List[MailMessage]:
         """
         인덱스 기반 페이징 (비추천: 메일이 추가/삭제되면 인덱스가 변경됨)
         """
@@ -84,6 +85,99 @@ class MailService:
                 criteria=AND(uid=target_uids),
                 reverse=True
             ))
+
+    def search_mails(self) -> List[MailMessage]:
+        pass
+
+    # 개별 메일 관련 메소드
+
+    def move_mails(self, mail_uids: List[str], folder_name: str) -> None:
+        """
+        메일을 폴더로 이동합니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            mailbox.move(mail_uids, folder_name)
+
+    def copy_mails(self, mail_uids: List[str], folder_name: str) -> None:
+        """
+        메일을 폴더로 복사합니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            mailbox.copy(mail_uids, folder_name)
+
+    def delete_mails(self, mail_uids: List[str]) -> None:
+        """
+        메일을 삭제합니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            mailbox.delete(mail_uids)
+
+    def mark_as_read(self, mail_uids: List[str]) -> None:
+        """
+        메일을 읽음 상태로 변경합니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            mailbox.flag(mail_uids, '\\Seen', True)
+
+    def mark_as_unread(self, mail_uids: List[str]) -> None:
+        """
+        메일을 읽지 않음 상태로 변경합니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            mailbox.flag(mail_uids, '\\Seen', False)
+
+    def mark_as_important(self, mail_uids: List[str]) -> None:
+        """
+        메일을 중요 상태로 변경합니다.
+        중요 상태는 메일 클라이언트에서 중요 표시로 표시됩니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            mailbox.flag(mail_uids, '\\Flagged', True)
+
+    def mark_as_unimportant(self, mail_uids: List[str]) -> None:
+        """
+        메일을 중요 상태로 변경합니다.
+        중요 상태는 메일 클라이언트에서 중요 표시로 표시됩니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            mailbox.flag(mail_uids, '\\Flagged', False)
+
+    # 폴더 관련 메소드
+
+    def get_folder_list(self) -> List[FolderInfo]:
+        """
+        IMAP 형식에 맞는 폴더를 가져옵니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            return mailbox.folder.list()
+
+    def create_folder(self, folder_name: str) -> None:
+        """
+        폴더를 생성합니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            mailbox.folder.create(folder_name)
+
+    def delete_folder(self, folder_name: str) -> None:
+        """
+        폴더를 삭제합니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            mailbox.folder.delete(folder_name)
+
+    def rename_folder(self, old_folder_name: str, new_folder_name: str) -> None:
+        """
+        폴더 이름을 변경합니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            mailbox.folder.rename(old_folder_name, new_folder_name)
+
+    def is_folder_exists(self, folder_name: str) -> bool:
+        """
+        폴더가 존재하는지 확인합니다.
+        """
+        with self._get_mailbox_client() as mailbox:
+            return mailbox.folder.exists(folder_name)
 
 
 if __name__ == "__main__":

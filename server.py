@@ -10,6 +10,7 @@ from mcp.types import Tool, TextContent
 
 from service.mail_service import MailService
 from service.mail_dto import mails_to_json, mails_to_text, mail_to_json, mail_to_text
+from data.folder import folder_info_list_to_folder_list
 
 # -------
 # 1. Global credentials (set by main function)
@@ -93,6 +94,176 @@ async def handle_list_tools() -> list[Tool]:
                     }
                 },
                 "required": ["uid"],
+            }
+        ),
+        # 폴더 관리 tools
+        Tool(
+            name="list_folders",
+            description="메일 폴더 목록 조회",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": [],
+            }
+        ),
+        Tool(
+            name="create_folder",
+            description="새 메일 폴더 생성",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "folder_name": {
+                        "type": "string",
+                        "description": "생성할 폴더 이름"
+                    }
+                },
+                "required": ["folder_name"],
+            }
+        ),
+        Tool(
+            name="delete_folder",
+            description="메일 폴더 삭제",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "folder_name": {
+                        "type": "string",
+                        "description": "삭제할 폴더 이름"
+                    }
+                },
+                "required": ["folder_name"],
+            }
+        ),
+        Tool(
+            name="rename_folder",
+            description="메일 폴더 이름 변경",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "old_folder_name": {
+                        "type": "string",
+                        "description": "기존 폴더 이름"
+                    },
+                    "new_folder_name": {
+                        "type": "string",
+                        "description": "새 폴더 이름"
+                    }
+                },
+                "required": ["old_folder_name", "new_folder_name"],
+            }
+        ),
+        # 메일 조작 tools
+        Tool(
+            name="move_mails",
+            description="메일을 다른 폴더로 이동",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mail_uids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "이동할 메일들의 UID 목록"
+                    },
+                    "folder_name": {
+                        "type": "string",
+                        "description": "이동할 대상 폴더 이름"
+                    }
+                },
+                "required": ["mail_uids", "folder_name"],
+            }
+        ),
+        Tool(
+            name="copy_mails",
+            description="메일을 다른 폴더로 복사",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mail_uids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "복사할 메일들의 UID 목록"
+                    },
+                    "folder_name": {
+                        "type": "string",
+                        "description": "복사할 대상 폴더 이름"
+                    }
+                },
+                "required": ["mail_uids", "folder_name"],
+            }
+        ),
+        Tool(
+            name="delete_mails",
+            description="메일 삭제",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mail_uids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "삭제할 메일들의 UID 목록"
+                    }
+                },
+                "required": ["mail_uids"],
+            }
+        ),
+        Tool(
+            name="mark_mails_read",
+            description="메일을 읽음 상태로 변경",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mail_uids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "읽음 처리할 메일들의 UID 목록"
+                    }
+                },
+                "required": ["mail_uids"],
+            }
+        ),
+        Tool(
+            name="mark_mails_unread",
+            description="메일을 읽지 않음 상태로 변경",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mail_uids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "읽지 않음 처리할 메일들의 UID 목록"
+                    }
+                },
+                "required": ["mail_uids"],
+            }
+        ),
+        Tool(
+            name="mark_mails_important",
+            description="메일을 중요 상태로 변경",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mail_uids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "중요 처리할 메일들의 UID 목록"
+                    }
+                },
+                "required": ["mail_uids"],
+            }
+        ),
+        Tool(
+            name="mark_mails_unimportant",
+            description="메일을 중요하지 않음 상태로 변경",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mail_uids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "중요하지 않음 처리할 메일들의 UID 목록"
+                    }
+                },
+                "required": ["mail_uids"],
             }
         ),
         Tool(
@@ -202,6 +373,123 @@ async def handle_call_tool(name: Tool, args: dict | None):
         elif name == "ping":
             return [TextContent(type="text", text="MCP Server is running")]
 
+        # 폴더 관리 tools
+        elif name == "list_folders":
+            folder_info_list = mail_service.get_folder_list()
+            folder_list = folder_info_list_to_folder_list(folder_info_list)
+            import json
+            content = json.dumps(
+                [folder.to_dict() for folder in folder_list], ensure_ascii=False, indent=2)
+            return [TextContent(type="text", text=content)]
+
+        elif name == "create_folder":
+            folder_name = args.get("folder_name")
+            if not folder_name:
+                return [TextContent(type="text", text="폴더 이름이 필요합니다.")]
+
+            mail_service.create_folder(folder_name)
+            return [TextContent(type="text", text=f"폴더 '{folder_name}'가 성공적으로 생성되었습니다.")]
+
+        elif name == "delete_folder":
+            folder_name = args.get("folder_name")
+            if not folder_name:
+                return [TextContent(type="text", text="폴더 이름이 필요합니다.")]
+
+            # 폴더 존재 여부 확인
+            if not mail_service.is_folder_exists(folder_name):
+                return [TextContent(type="text", text=f"폴더 '{folder_name}'가 존재하지 않습니다.")]
+
+            mail_service.delete_folder(folder_name)
+            return [TextContent(type="text", text=f"폴더 '{folder_name}'가 성공적으로 삭제되었습니다.")]
+
+        elif name == "rename_folder":
+            old_folder_name = args.get("old_folder_name")
+            new_folder_name = args.get("new_folder_name")
+
+            if not old_folder_name or not new_folder_name:
+                return [TextContent(type="text", text="기존 폴더 이름과 새 폴더 이름이 모두 필요합니다.")]
+
+            # 기존 폴더 존재 여부 확인
+            if not mail_service.is_folder_exists(old_folder_name):
+                return [TextContent(type="text", text=f"폴더 '{old_folder_name}'가 존재하지 않습니다.")]
+
+            mail_service.rename_folder(old_folder_name, new_folder_name)
+            return [TextContent(type="text", text=f"폴더 '{old_folder_name}'가 '{new_folder_name}'로 성공적으로 변경되었습니다.")]
+
+        # 메일 조작 tools
+        elif name == "move_mails":
+            mail_uids = args.get("mail_uids", [])
+            folder_name = args.get("folder_name")
+
+            if not mail_uids or not folder_name:
+                return [TextContent(type="text", text="메일 UID 목록과 폴더 이름이 필요합니다.")]
+
+            # 폴더 존재 여부 확인
+            if not mail_service.is_folder_exists(folder_name):
+                return [TextContent(type="text", text=f"폴더 '{folder_name}'가 존재하지 않습니다.")]
+
+            mail_service.move_mails(mail_uids, folder_name)
+            return [TextContent(type="text", text=f"{len(mail_uids)}개의 메일이 '{folder_name}' 폴더로 성공적으로 이동되었습니다.")]
+
+        elif name == "copy_mails":
+            mail_uids = args.get("mail_uids", [])
+            folder_name = args.get("folder_name")
+
+            if not mail_uids or not folder_name:
+                return [TextContent(type="text", text="메일 UID 목록과 폴더 이름이 필요합니다.")]
+
+            # 폴더 존재 여부 확인
+            if not mail_service.is_folder_exists(folder_name):
+                return [TextContent(type="text", text=f"폴더 '{folder_name}'가 존재하지 않습니다.")]
+
+            mail_service.copy_mails(mail_uids, folder_name)
+            return [TextContent(type="text", text=f"{len(mail_uids)}개의 메일이 '{folder_name}' 폴더로 성공적으로 복사되었습니다.")]
+
+        elif name == "delete_mails":
+            mail_uids = args.get("mail_uids", [])
+
+            if not mail_uids:
+                return [TextContent(type="text", text="삭제할 메일 UID 목록이 필요합니다.")]
+
+            mail_service.delete_mails(mail_uids)
+            return [TextContent(type="text", text=f"{len(mail_uids)}개의 메일이 성공적으로 삭제되었습니다.")]
+
+        elif name == "mark_mails_read":
+            mail_uids = args.get("mail_uids", [])
+
+            if not mail_uids:
+                return [TextContent(type="text", text="읽음 처리할 메일 UID 목록이 필요합니다.")]
+
+            mail_service.mark_as_read(mail_uids)
+            return [TextContent(type="text", text=f"{len(mail_uids)}개의 메일이 읽음 상태로 변경되었습니다.")]
+
+        elif name == "mark_mails_unread":
+            mail_uids = args.get("mail_uids", [])
+
+            if not mail_uids:
+                return [TextContent(type="text", text="읽지 않음 처리할 메일 UID 목록이 필요합니다.")]
+
+            mail_service.mark_as_unread(mail_uids)
+            return [TextContent(type="text", text=f"{len(mail_uids)}개의 메일이 읽지 않음 상태로 변경되었습니다.")]
+
+        elif name == "mark_mails_important":
+            mail_uids = args.get("mail_uids", [])
+
+            if not mail_uids:
+                return [TextContent(type="text", text="중요 처리할 메일 UID 목록이 필요합니다.")]
+
+            mail_service.mark_as_important(mail_uids)
+            return [TextContent(type="text", text=f"{len(mail_uids)}개의 메일이 중요 상태로 변경되었습니다.")]
+
+        elif name == "mark_mails_unimportant":
+            mail_uids = args.get("mail_uids", [])
+
+            if not mail_uids:
+                return [TextContent(type="text", text="중요하지 않음 처리할 메일 UID 목록이 필요합니다.")]
+
+            mail_service.mark_as_unimportant(mail_uids)
+            return [TextContent(type="text", text=f"{len(mail_uids)}개의 메일이 중요하지 않음 상태로 변경되었습니다.")]
+
         raise ValueError(f"Unknown tool: {name}")
 
     except Exception as e:
@@ -241,4 +529,5 @@ if __name__ == "__main__":
                         help='Naver Password')
 
     args = parser.parse_args()
-    asyncio.run(main(naver_id=args.naver_id, naver_password=args.naver_password))
+    asyncio.run(main(naver_id=args.naver_id,
+                naver_password=args.naver_password))
